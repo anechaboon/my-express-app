@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import hashtagRouter from "./routes/hashtag.js";
 import uploadRouter from './routes/upload.js';
+import postRouter from './routes/post.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -20,5 +21,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ใช้ router
 app.use('/api/uploads', uploadRouter);
+
+app.use('/api/post', postRouter)
 
 app.listen(4000, () => console.log("Server running on http://localhost:4000"));
