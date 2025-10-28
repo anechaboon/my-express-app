@@ -11,7 +11,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const uploadDir = path.join(__dirname, '../uploads');
-const id = String(Date.now()) + Math.round(Math.random() * 1E9);
+
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     // สร้างโฟลเดอร์ถ้าไม่มี
@@ -22,7 +22,7 @@ const storage = multer.diskStorage({
     cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
-    const uniqueName = id + path.extname(file.originalname);
+    const uniqueName = String(Date.now()) + Math.round(Math.random() * 1E9) + path.extname(file.originalname);
     cb(null, uniqueName);
   }
 });
@@ -44,5 +44,86 @@ router.post('/upload-image', upload.single('image'), async (req, res) => {
     path: `/uploads/${req.file.filename}`
   });
 });
+
+
+router.get("/", async (req, res) => {
+  try {
+    const search = req.query.search || "";
+    const limit = Math.min(parseInt(req.query.limit) || 10, 100);
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const offset = (page - 1) * limit;
+
+    const searchPattern = `%${search}%`;
+    const [rows, [{ count: total }]] = await Promise.all([
+      db.query("SELECT id, name FROM images WHERE name LIKE ? LIMIT ? OFFSET ?", [
+        searchPattern,
+        limit,
+        offset
+      ]).then(([result]) => result),
+      db.query("SELECT COUNT(*) as count FROM images WHERE name LIKE ?", [searchPattern])
+        .then(([result]) => result)
+    ]);
+
+    res.json({
+      status: rows.length ? true : false,
+      msg: rows.length ? "Images found" : "No images found",
+      data: rows,
+      pagination: { total, page, limit, totalPages: Math.ceil(total / limit) }
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Database error" });
+  }
+});
+
+router.post("/getByHashtag", async (req, res) => {
+  try {
+    const params = req.body.params;
+    const hashtag = params.hashtag;
+    const limit = Math.min(parseInt(params.limit) || 10, 100);
+    const page = Math.max(parseInt(params.page) || 1, 1);
+    const offset = (page - 1) * limit;
+
+    let sqlWhere = ` FROM images
+      JOIN image_has_hashtag ON images.id = image_has_hashtag.image_id
+      JOIN hashtags ON image_has_hashtag.hashtag_id = hashtags.id `;
+    let queryParams = [];
+    let countParams = [];
+    
+    if (hashtag) {
+      sqlWhere += ` WHERE hashtags.name = ? `;
+      queryParams = [hashtag, limit, offset];
+      countParams = [hashtag];
+    } else {
+      queryParams = [limit, offset];
+      countParams = [];
+    }
+    const fullSql = "SELECT GROUP_CONCAT(hashtags.name) AS hashtags, images.id, images.file_name, images.file_path " + sqlWhere + " GROUP BY images.id LIMIT ? OFFSET ?";
+    const [rows, [{ count: total }]] = await Promise.all([
+      db.query(fullSql, queryParams)
+        .then(([result]) => result),
+      db.query("SELECT COUNT(*) as count " + sqlWhere, countParams)
+        .then(([result]) => result)
+    ]);
+
+    const data = rows.map(r => ({
+      id: r.id,
+      file_name: r.file_name,
+      file_path: r.file_path,
+      hashtags: r.hashtags ? r.hashtags.split(',') : []
+    }));
+    
+    res.json({
+      status: rows.length ? true : false,
+      msg: rows.length ? "Images found" : "No images found",
+      data,
+      pagination: { total, page, limit, totalPages: Math.ceil(total / limit) }
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Database error" });
+  }
+});
+
 
 export default router;

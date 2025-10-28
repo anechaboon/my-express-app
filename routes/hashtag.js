@@ -7,10 +7,27 @@ const router = express.Router();
 router.get("/", async (req, res) => {
   try {
     const search = req.query.search || "";
-    if (!search) return res.status(400).json({ status: false, msg: "Search query required" });
-    const [rows] = await db.query("SELECT * FROM hashtags WHERE name LIKE ? LIMIT 10", [`%${search}%`]);
-    if (!rows.length) return res.json({ status: false, msg: "No hashtags found" });
-    return res.json({ status: true, msg: "Hashtags found", data: rows });
+    const limit = Math.min(parseInt(req.query.limit) || 10, 100);
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const offset = (page - 1) * limit;
+
+    const searchPattern = `%${search}%`;
+    const [rows, [{ count: total }]] = await Promise.all([
+      db.query("SELECT id, name FROM hashtags WHERE name LIKE ? LIMIT ? OFFSET ?", [
+        searchPattern,
+        limit,
+        offset
+      ]).then(([result]) => result),
+      db.query("SELECT COUNT(*) as count FROM hashtags WHERE name LIKE ?", [searchPattern])
+        .then(([result]) => result)
+    ]);
+
+    res.json({
+      status: rows.length ? true : false,
+      msg: rows.length ? "Hashtags found" : "No hashtags found",
+      data: rows,
+      pagination: { total, page, limit, totalPages: Math.ceil(total / limit) }
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Database error" });
