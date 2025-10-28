@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import hashtagRouter from "./routes/hashtag.js";
-import uploadRouter from './routes/upload.js';
+import imagesRouter from './routes/images.js';
 import postRouter from './routes/post.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -20,7 +20,7 @@ app.use("/api/hashtags", hashtagRouter);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ใช้ router
-app.use('/api/uploads', uploadRouter);
+app.use('/api/images', imagesRouter);
 
 app.use('/api/post', postRouter)
 
