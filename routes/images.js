@@ -45,7 +45,6 @@ router.post('/upload', upload.single('image'), async (req, res) => {
   });
 });
 
-
 router.get("/", async (req, res) => {
   try {
     const search = req.query.search || "";
@@ -140,5 +139,22 @@ router.post("/getByHashtag", async (req, res) => {
   }
 });
 
+// unlink whole folder uploads
+router.delete('/clearUploads', async (req, res) => {
+  try { 
+    if (fs.existsSync(uploadDir)) {
+      fs.readdirSync(uploadDir).forEach((file) => {
+        const filePath = path.join(uploadDir, file);
+        fs.unlinkSync(filePath);
+      });
+      res.json({ status: true, msg: 'All uploaded files deleted' });
+    } else {
+      res.status(400).json({ status: false, msg: 'Uploads folder does not exist' });
+    }   
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error deleting files: " + err.message });
+  } 
+});
 
 export default router;
