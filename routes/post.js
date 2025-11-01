@@ -1,5 +1,5 @@
 import express from "express";
-import { db } from "../db.js";
+import { db } from "../dbpg.js";
 const router = express.Router();
 
 // ➕ Create new post

@@ -14,12 +14,12 @@ app.use(express.json());
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-app.use("/api/hashtags", hashtagRouter);
-
 // serve ไฟล์ static โฟลเดอร์ uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ใช้ router
+app.use("/api/hashtags", hashtagRouter);
+
 app.use('/api/images', imagesRouter);
 
 app.use('/api/post', postRouter)
