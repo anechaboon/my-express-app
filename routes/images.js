@@ -34,12 +34,12 @@ router.post('/upload', upload.single('image'), async (req, res) => {
     return res.status(400).json({ error: 'No file uploaded' });
   }
 
-  const [result] = await db.query("INSERT INTO images (file_name, file_path) VALUES (?, ?)", [
+  const result = await db.query("INSERT INTO images (file_name, file_path) VALUES ($1, $2) RETURNING id", [
     req.file.filename,
     `/uploads/${req.file.filename}`
   ]);
   res.json({
-    id: result.insertId,
+    id: result.rows[0].id,
     filename: req.file.filename,
     path: `/uploads/${req.file.filename}`
   });
@@ -55,12 +55,12 @@ router.get("/", async (req, res) => {
 
     const searchPattern = `%${search}%`;
     const [rows, [{ count: total }]] = await Promise.all([
-      db.query("SELECT id, name FROM images WHERE name LIKE ? LIMIT ? OFFSET ?", [
+      db.query("SELECT id, name FROM images WHERE name LIKE $1 LIMIT $2 OFFSET $3", [
         searchPattern,
         limit,
         offset
       ]).then(([result]) => result),
-      db.query("SELECT COUNT(*) as count FROM images WHERE name LIKE ?", [searchPattern])
+      db.query("SELECT COUNT(*) as count FROM images WHERE name LIKE $1", [searchPattern])
         .then(([result]) => result)
     ]);
 
@@ -89,39 +89,54 @@ router.post("/getByHashtag", async (req, res) => {
       JOIN hashtags ON image_has_hashtag.hashtag_id = hashtags.id `;
     let queryParams = [];
     let countParams = [];
-    
+    let whereClause = "";
+
     if (hashtag) {
-      sqlWhere += ` WHERE hashtags.name = ? `;
+      whereClause = ` WHERE hashtags.name = $1 `;
       queryParams = [hashtag, limit, offset];
       countParams = [hashtag];
     } else {
       queryParams = [limit, offset];
       countParams = [];
     }
-    const fullSql = "SELECT GROUP_CONCAT(hashtags.name) AS hashtags, images.id, images.file_name, images.file_path " + sqlWhere + " GROUP BY images.id LIMIT ? OFFSET ?";
-    const [rows, [{ count: total }]] = await Promise.all([
-      db.query(fullSql, queryParams)
-        .then(([result]) => result),
-      db.query("SELECT COUNT(*) as count " + sqlWhere, countParams)
-        .then(([result]) => result)
+
+    const fullSql = `
+      SELECT array_agg(hashtags.name) AS hashtags, images.id, images.file_name, images.file_path
+      ${sqlWhere}
+      ${whereClause}
+      GROUP BY images.id
+      LIMIT $${hashtag ? 2 : 1} OFFSET $${hashtag ? 3 : 2}
+    `;
+
+    const countSql = `
+      SELECT COUNT(DISTINCT images.id) as count
+      ${sqlWhere}
+      ${whereClause}
+    `;
+
+    const [fullResult, countResult] = await Promise.all([
+      db.query(fullSql, queryParams),
+      db.query(countSql, countParams)
     ]);
+    const rows = fullResult.rows || fullResult;
+    const total = countResult.rows ? countResult.rows[0].count : countResult[0].count;
 
     const data = rows.map(r => ({
       id: r.id,
       file_name: r.file_name,
       file_path: r.file_path,
-      hashtags: r.hashtags ? r.hashtags.split(',') : []
+      hashtags: r.hashtags || []
     }));
-    
+
     res.json({
       status: rows.length ? true : false,
       msg: rows.length ? "Images found" : "No images found",
       data,
-      pagination: { total, page, limit, totalPages: Math.ceil(total / limit) }
+      pagination: { total: Number(total), page, limit, totalPages: Math.ceil(Number(total) / limit) }
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Database error" });
+    res.status(500).json({ error: "Database error: " + err.message });
   }
 });
 
