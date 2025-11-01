@@ -84,8 +84,8 @@ router.post("/getByHashtag", async (req, res) => {
     const offset = (page - 1) * limit;
 
     let sqlWhere = ` FROM images
-      JOIN image_has_hashtag ON images.id = image_has_hashtag.image_id
-      JOIN hashtags ON image_has_hashtag.hashtag_id = hashtags.id `;
+      JOIN image_has_hashtags ON images.id = image_has_hashtags.image_id
+      JOIN hashtags ON image_has_hashtags.hashtag_id = hashtags.id `;
     let queryParams = [];
     let countParams = [];
     let whereClause = "";

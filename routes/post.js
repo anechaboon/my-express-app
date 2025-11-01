@@ -10,10 +10,10 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ status: false, msg: "Image IDs array required" });
     }
     
-    // INSERT INTO image_has_hashtag for each image and hashtag combination
+    // INSERT INTO image_has_hashtags for each image and hashtag combination
     for (const image_id of image_ids) {
       for (const tag_id of hashtags) {
-        await db.query("INSERT INTO image_has_hashtag (image_id, hashtag_id) VALUES ($1, $2)", [image_id, tag_id]);
+        await db.query("INSERT INTO image_has_hashtags (image_id, hashtag_id) VALUES ($1, $2)", [image_id, tag_id]);
       }
     }
     res.status(201).json({ status: true, msg: "Post created with multiple images and hashtags" });
