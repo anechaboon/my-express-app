@@ -142,17 +142,16 @@ router.post("/getByHashtag", async (req, res) => {
 // unlink whole folder uploads
 router.delete('/clearUploads', async (req, res) => {
   try { 
+    // delete all records in images table
+    await db.query("DELETE FROM images");
+    // delete all records in image_has_hashtags table
+    await db.query("DELETE FROM image_has_hashtags");
+    
     if (fs.existsSync(uploadDir)) {
       fs.readdirSync(uploadDir).forEach((file) => {
         const filePath = path.join(uploadDir, file);
         fs.unlinkSync(filePath);
       });
-
-      // delete all records in images table
-      await db.query("DELETE FROM images");
-      // delete all records in image_has_hashtags table
-      await db.query("DELETE FROM image_has_hashtags");
-      
       res.json({ status: true, msg: 'All uploaded files deleted' });
     } else {
       res.status(400).json({ status: false, msg: 'Uploads folder does not exist' });
